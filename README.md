@@ -130,15 +130,29 @@ Kiwi 无法隐藏。
 
 ### 4. 连接飞书日历
 
-1. 在飞书开放平台创建企业自建应用并开启机器人能力。
-2. 为应用申请日历读取、日程更新、离线授权和
-   `im:message:send_as_bot` 权限，然后发布应用版本。
-3. 在飞书应用的安全设置中添加回调地址：
+快速入口：
+[飞书开放平台开发者后台](https://open.feishu.cn/app?lang=zh-CN) ·
+[官方“创建并配置应用”教程](https://open.feishu.cn/document/mass-messaging-to-designated-departments/create-app-request-permission) ·
+[官方日历同步说明](https://open.feishu.cn/document/best-practices/calendarsync)
+
+1. 打开[飞书开发者后台](https://open.feishu.cn/app?lang=zh-CN)，登录后点击
+   “创建企业自建应用”。如果看不到此按钮，需要让企业管理员授予创建应用的权限。
+2. 进入新应用，在“凭证与基础信息”中复制 App ID 和 App Secret。
+   App Secret 不要发到聊天或提交到 Git 仓库。
+3. 进入“应用能力 → 添加应用能力”，添加并启用“机器人”。
+4. 进入“权限管理 → API 权限”，开通以下权限：
+   - 获取日历、日程及忙闲信息（`calendar:calendar:readonly`）
+   - 更新日历及日程信息
+   - 离线访问用户资源（`offline_access`）
+   - 以应用的身份发消息（`im:message:send_as_bot`）
+5. 进入“安全设置 → 重定向 URL”，添加：
    `http://127.0.0.1:17653/feishu/oauth/callback`。
-4. 打开 Kiwi 菜单栏中的“飞书日历 → 连接与提醒设置…”。
-5. 填写 App ID、App Secret 和接收提醒用户的 Open ID。
+6. 进入“版本管理与发布”，创建版本并提交发布；权限只有在应用版本生效后
+   才能被 Kiwi 使用。
+7. 打开 Kiwi 菜单栏中的“飞书日历 → 连接与提醒设置…”。
+8. 填写 App ID、App Secret 和接收提醒用户的 Open ID。
    Calendar ID 通常可以留空。
-6. 点击“登录飞书授权”，完成授权后选择“保存并测试连接”。
+9. 点击“登录飞书授权”，完成授权后选择“保存并测试连接”。
 
 连接成功后，Kiwi 每分钟同步一次未来 24 小时的日程，并在本机检查提醒时机。
 
