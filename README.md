@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.0/Kiwi-0.1.0-macOS-universal.pkg"><strong>下载 Kiwi 0.1.0</strong></a>
+  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.1/Kiwi-0.1.1-macOS-universal.pkg"><strong>下载 Kiwi 0.1.1</strong></a>
   ·
   <a href="https://github.com/tacotacoqw/Kiwi/releases">全部版本</a>
   ·
@@ -35,15 +35,20 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 ### 系统要求
 
 - macOS 13 Ventura 或更高版本
+- 已适配 macOS 26 的应用图标、菜单栏和刘海屏显示
 - Apple Silicon 或 Intel Mac
 - 摄像头为可选功能；不开启也可以使用桌宠、日历和任务陪伴功能
 
 ### 安装步骤
 
 1. 下载
-   [Kiwi-0.1.0-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.0/Kiwi-0.1.0-macOS-universal.pkg)。
+   [Kiwi-0.1.1-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.1/Kiwi-0.1.1-macOS-universal.pkg)。
 2. 双击安装包并按提示完成安装，Kiwi 会自动放入“Applications / 应用程序”。
 3. 从 Finder 的“应用程序”中启动 Kiwi。
+
+也可以下载
+[Kiwi-0.1.1-macOS-universal.dmg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.1/Kiwi-0.1.1-macOS-universal.dmg)，
+把其中的 `Kiwi.app` 拖入“Applications / 应用程序”。
 
 > [!IMPORTANT]
 > 当前应用使用临时代码签名，安装包尚未经过 Apple Developer ID 签名与公证。
@@ -54,7 +59,8 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 安装包 SHA-256：
 
 ```text
-a8df23f0a087faecbc51c3835e53023e06612032c07d2309e38dbf05dcea3bd1
+PKG  e9813653f5d4ac4473e46efe98541ef5cda8406cc726b70548f2ebe254370106
+DMG  07f8c0b3253bf61b05e5f8b2ab6b29750bf84bab0e766aad0433ae32265f0b93
 ```
 
 ## 主要功能
@@ -65,7 +71,7 @@ a8df23f0a087faecbc51c3835e53023e06612032c07d2309e38dbf05dcea3bd1
 - 呼吸、眨眼、好奇、抖身、探头和多套散步动画
 - 接近屏幕边缘时自动转向，显示器变化后自动回到可见区域
 - 遵循 macOS“减少动态效果”无障碍设置
-- 菜单栏常驻，不占用 Dock
+- 菜单栏使用紧凑矢量图标，不占用 Dock；桌宠本身也提供后台入口
 
 ### 健康提醒
 
@@ -104,11 +110,22 @@ a8df23f0a087faecbc51c3835e53023e06612032c07d2309e38dbf05dcea3bd1
 启动后，Kiwi 会直接出现在桌面，同时在菜单栏显示一个小 Kiwi 图标。
 
 - **拖动 Kiwi**：按住它并拖到喜欢的位置。
-- **单击 Kiwi**：展开“状态、散步、日历、喂食”快捷按钮。
+- **单击 Kiwi**：展开“后台、散步、日历、喂食”等快捷按钮。
 - **双击 Kiwi**：让它立即起来散步。
 - **右键 Kiwi**：直接打开完整后台菜单；菜单栏拥挤时也可使用。
 - **找回 Kiwi**：从菜单栏选择“显示 Kiwi”。
 - **退出**：从菜单栏选择“退出 Kiwi”。
+
+#### macOS 26 与 14 寸刘海屏
+
+菜单栏空间不足时，macOS 可能临时隐藏部分第三方图标。Kiwi 0.1.1
+已经缩短状态项宽度，并在启动、重新打开应用和显示器变化时重新注册后台入口。
+如果图标仍被刘海或其他图标挤掉，可以使用任一备用入口：
+
+1. 单击桌面上的 Kiwi，再选择“后台”。
+2. 直接右键桌面上的 Kiwi。
+3. 在 Finder 的“应用程序”中再次打开 Kiwi；应用不会重复启动，而会显示 Kiwi
+   并弹出后台菜单。
 
 ### 2. 设置久坐和喝水提醒
 

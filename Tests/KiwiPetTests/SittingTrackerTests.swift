@@ -1607,6 +1607,16 @@ final class WalkAnimationVariantTests: XCTestCase {
 }
 
 final class FeedingInteractionTests: XCTestCase {
+    func testBackendQuickActionProvidesMenuBarFallback() {
+        XCTAssertEqual(PetView.QuickAction.status.title, "后台")
+        XCTAssertEqual(
+            PetView.QuickAction.status.symbolName,
+            "slider.horizontal.3"
+        )
+        XCTAssertEqual(PetView.QuickAction.status.iconName, "settings.svg")
+        XCTAssertNotNil(AssetLoader.icon(named: "kiwi.svg"))
+    }
+
     func testCameraQuickActionIsReplacedByFeedingOnly() {
         XCTAssertEqual(PetView.QuickAction.feed.title, "喂食")
         XCTAssertEqual(PetView.QuickAction.feed.iconName, "feed.svg")

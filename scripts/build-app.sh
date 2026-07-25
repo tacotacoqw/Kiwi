@@ -37,7 +37,6 @@ lipo -create \
     -output "$STAGING_DIR/Contents/MacOS/KiwiPet"
 cp "$PROJECT_DIR/Info.plist" "$STAGING_DIR/Contents/Info.plist"
 cp "$PROJECT_DIR/Assets/AppIcon/AppIcon.icns" "$STAGING_DIR/Contents/Resources/AppIcon.icns"
-cp "$PROJECT_DIR/Assets/AppIcon/StatusIconTemplate.png" "$STAGING_DIR/Contents/Resources/StatusIconTemplate.png"
 cp "$PROJECT_DIR"/Assets/Frames/*.png "$STAGING_DIR/Contents/Resources/Frames/"
 cp "$PROJECT_DIR"/Assets/Icons/*.svg "$STAGING_DIR/Contents/Resources/Icons/"
 cp "$PROJECT_DIR"/Assets/Sounds/*.mp3 "$STAGING_DIR/Contents/Resources/Sounds/"

@@ -16,6 +16,8 @@ enum ReminderIntervalInput {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private static let compactStatusItemLength: CGFloat = 22
+
     private enum DefaultsKey {
         static let monitoringEnabled = "monitoringEnabled"
         static let codexTaskMonitoringEnabled = "codexTaskMonitoringEnabled"
@@ -106,7 +108,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ReminderEscalationWindowController { [weak self] in
             self?.petWindow?.screen ?? NSScreen.main
         }
-    private var statusItem: NSStatusItem!
+    private var statusItem: NSStatusItem?
     private var cameraStatusItem: NSMenuItem!
     private var cameraToggleItem: NSMenuItem!
     private var cameraSettingsItem: NSMenuItem!
@@ -178,7 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         registerDefaults()
         soundEnabled = userDefaults.bool(forKey: DefaultsKey.soundEnabled)
         if !animationPreviewMode {
-            createStatusMenu()
+            ensureStatusMenuAvailable()
         }
     }
 
@@ -214,6 +216,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 petView.playPerformanceNow()
             }
             return
+        }
+        ensureStatusMenuAvailable()
+        DispatchQueue.main.async { [weak self] in
+            self?.ensureStatusMenuAvailable()
         }
         connectMonitoring()
         connectCodexTaskMonitoring()
@@ -259,9 +265,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         _ sender: NSApplication,
         hasVisibleWindows flag: Bool
     ) -> Bool {
-        statusItem?.isVisible = true
+        ensureStatusMenuAvailable()
         showKiwi()
+        DispatchQueue.main.async { [weak self] in
+            self?.presentStatusMenuFromPet()
+        }
         return true
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        guard !animationPreviewMode else { return }
+        ensureStatusMenuAvailable()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -320,12 +334,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handlePetQuickAction(action)
         }
         petView.onContextMenu = { [weak self] point in
-            guard let self, let menu = self.statusItem?.menu else { return }
-            menu.popUp(
-                positioning: nil,
-                at: point,
-                in: self.petView
-            )
+            self?.presentStatusMenuFromPet(at: point)
         }
         petView.onSoundEnabledChanged = { [weak self] enabled in
             guard let self else { return }
@@ -408,6 +417,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func screenConfigurationChanged() {
         ensurePetIsVisible()
+        ensureStatusMenuAvailable()
         reminderEscalationController.screenConfigurationChanged()
     }
 
@@ -419,20 +429,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func createStatusMenu() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.autosaveName = "KiwiStatusItem"
-        statusItem.isVisible = true
-        if let button = statusItem.button {
-            let statusIcon = Bundle.main.url(
-                forResource: "StatusIconTemplate",
-                withExtension: "png"
-            ).flatMap(NSImage.init(contentsOf:))
-            button.image = statusIcon
+        guard statusItem == nil else { return }
+
+        let item = NSStatusBar.system.statusItem(
+            withLength: Self.compactStatusItemLength
+        )
+        statusItem = item
+        item.autosaveName = "KiwiStatusItem.v2"
+        item.isVisible = true
+        if let button = item.button {
+            button.image = AssetLoader.icon(named: "kiwi.svg")
                 ?? AssetLoader.frame(named: "idle-08.png")
-            button.image?.size = NSSize(width: 20, height: 20)
+            button.image?.size = NSSize(width: 17, height: 17)
             button.image?.isTemplate = true
             button.imageScaling = .scaleProportionallyDown
-            button.toolTip = "Kiwi 桌宠"
+            button.imagePosition = .imageOnly
+            button.title = ""
+            button.toolTip = "Kiwi 后台"
+            button.setAccessibilityLabel("Kiwi 后台")
         }
 
         let menu = NSMenu()
@@ -727,7 +741,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         applyMenuIcon(quitItem, named: "quit.svg")
         menu.addItem(quitItem)
-        statusItem.menu = menu
+        item.menu = menu
+        ensureStatusMenuAvailable()
+    }
+
+    private func ensureStatusMenuAvailable() {
+        if statusItem == nil {
+            createStatusMenu()
+            return
+        }
+
+        statusItem?.length = Self.compactStatusItemLength
+        statusItem?.isVisible = true
+        if let button = statusItem?.button {
+            button.isHidden = false
+            button.alphaValue = 1
+            button.isEnabled = true
+            button.needsDisplay = true
+        }
+    }
+
+    private func presentStatusMenuFromPet(at point: NSPoint? = nil) {
+        ensureStatusMenuAvailable()
+        updateMenu()
+        guard let menu = statusItem?.menu, let petView else { return }
+        let anchor = point ?? NSPoint(
+            x: petView.bounds.midX,
+            y: petView.bounds.midY
+        )
+        menu.popUp(positioning: nil, at: anchor, in: petView)
     }
 
     private func connectMonitoring() {
@@ -1362,7 +1404,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .sound:
             break
         case .status:
-            showPresenceStatus()
+            presentStatusMenuFromPet()
         case .walk:
             petView.startWalkNow()
         case .calendar:
@@ -1518,22 +1560,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ],
             for: now
         )
-    }
-
-    private func showPresenceStatus() {
-        if sittingTracker.isPresent {
-            let elapsed = formatDuration(sittingTracker.elapsed())
-            let remaining = sittingTracker.timeUntilNextReminder()
-                .map(formatDuration) ?? "稍后"
-            petView.showMessage(
-                "我看到你啦，已经在桌前 \(elapsed)，\(remaining)后提醒。",
-                duration: 7
-            )
-        } else if monitoringEnabled {
-            petView.showMessage("我正在找你～坐到镜头前就开始计时。", duration: 6)
-        } else {
-            petView.showMessage("摄像头监测已关闭，可以从菜单重新打开。", duration: 6)
-        }
     }
 
     @objc private func toggleMonitoring() {

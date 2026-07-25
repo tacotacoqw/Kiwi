@@ -160,7 +160,7 @@ final class PetView: NSView {
         var title: String {
             switch self {
             case .sound: return "声音"
-            case .status: return "状态"
+            case .status: return "后台"
             case .walk: return "散步"
             case .calendar: return "日历"
             case .feed: return "喂食"
@@ -170,7 +170,7 @@ final class PetView: NSView {
         var symbolName: String {
             switch self {
             case .sound: return "speaker.wave.2.fill"
-            case .status: return "eye.fill"
+            case .status: return "slider.horizontal.3"
             case .walk: return "figure.walk"
             case .calendar: return "calendar"
             case .feed: return "takeoutbag.and.cup.and.straw.fill"
@@ -180,7 +180,7 @@ final class PetView: NSView {
         var iconName: String {
             switch self {
             case .sound: return "sound-on.svg"
-            case .status: return "status.svg"
+            case .status: return "settings.svg"
             case .walk: return "walk.svg"
             case .calendar: return "calendar.svg"
             case .feed: return "feed.svg"
