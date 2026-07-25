@@ -1300,6 +1300,131 @@ final class StandingGestureDetectorTests: XCTestCase {
         XCTAssertEqual(classifier.classify(standingFrame), .standing)
     }
 
+    func testRecordedLowCameraCroppedHeadUsesFrameEdgeTorsoMotion() {
+        var classifier = StandingPoseClassifier()
+        classifier.observeSeatedReference(
+            frame(
+                faceY: 0.407,
+                faceHeight: 0.405,
+                upperBodyY: 0.377,
+                upperBodyHeight: 0.748,
+                shoulderY: 0.189
+            )
+        )
+        let croppedStandingFrame = frame(
+            upperBodyY: 0.501,
+            upperBodyHeight: 0.983,
+            shoulderY: 0.578
+        )
+
+        XCTAssertNotEqual(
+            classifier.classify(croppedStandingFrame),
+            .standing
+        )
+        XCTAssertNotEqual(
+            classifier.classify(croppedStandingFrame),
+            .standing
+        )
+        XCTAssertEqual(
+            classifier.classify(croppedStandingFrame),
+            .standing
+        )
+    }
+
+    func testBackgroundFaceDoesNotBlockCroppedForegroundStanding() {
+        var classifier = StandingPoseClassifier()
+        classifier.observeSeatedReference(
+            frame(
+                faceY: 0.407,
+                faceHeight: 0.405,
+                upperBodyY: 0.377,
+                upperBodyHeight: 0.748,
+                shoulderY: 0.189
+            )
+        )
+        let foregroundStandingWithBackgroundFace = frame(
+            faceY: 0.680,
+            faceHeight: 0.084,
+            upperBodyY: 0.527,
+            upperBodyHeight: 0.919,
+            shoulderY: 0.698
+        )
+
+        XCTAssertNotEqual(
+            classifier.classify(
+                foregroundStandingWithBackgroundFace
+            ),
+            .standing
+        )
+        XCTAssertNotEqual(
+            classifier.classify(
+                foregroundStandingWithBackgroundFace
+            ),
+            .standing
+        )
+        XCTAssertEqual(
+            classifier.classify(
+                foregroundStandingWithBackgroundFace
+            ),
+            .standing
+        )
+    }
+
+    func testSideViewWithoutFaceOrPoseUsesStableFrameEdgeTorsoMotion() {
+        var classifier = StandingPoseClassifier()
+        classifier.observeSeatedReference(
+            frame(
+                faceY: 0.52,
+                faceHeight: 0.18,
+                upperBodyY: 0.43,
+                upperBodyHeight: 0.62,
+                shoulderY: 0.41
+            )
+        )
+        let sideStandingFrame = frame(
+            upperBodyY: 0.52,
+            upperBodyHeight: 0.84
+        )
+
+        XCTAssertNotEqual(
+            classifier.classify(sideStandingFrame),
+            .standing
+        )
+        XCTAssertNotEqual(
+            classifier.classify(sideStandingFrame),
+            .standing
+        )
+        XCTAssertEqual(
+            classifier.classify(sideStandingFrame),
+            .standing
+        )
+    }
+
+    func testStaticHeadCropDoesNotLookLikeStanding() {
+        var classifier = StandingPoseClassifier()
+        classifier.observeSeatedReference(
+            frame(
+                faceY: 0.88,
+                faceHeight: 0.20,
+                upperBodyY: 0.50,
+                upperBodyHeight: 0.90,
+                shoulderY: 0.60
+            )
+        )
+        let unchangedFrame = frame(
+            upperBodyY: 0.50,
+            upperBodyHeight: 0.90,
+            shoulderY: 0.60
+        )
+
+        for _ in 0..<8 {
+            XCTAssertNotEqual(
+                classifier.classify(unchangedFrame),
+                .standing
+            )
+        }
+    }
+
     func testRepeatedMismatchedDetectorsDoNotConfirmStanding() {
         var classifier = StandingPoseClassifier()
         classifier.observeSeatedReference(
@@ -1516,6 +1641,26 @@ final class StandingBodyPose3DStabilizerTests: XCTestCase {
 }
 
 final class PresenceSmootherTests: XCTestCase {
+    func testBodyPoseKeepsPresenceWhenHeadAndTorsoBoxesAreMissing() {
+        XCTAssertTrue(
+            PersonPresenceEvidence.isVisible(
+                faceDetected: false,
+                upperBodyDetected: false,
+                bodyPoseDetected: true
+            )
+        )
+    }
+
+    func testPresenceNeedsAtLeastOneIndependentPersonSignal() {
+        XCTAssertFalse(
+            PersonPresenceEvidence.isVisible(
+                faceDetected: false,
+                upperBodyDetected: false,
+                bodyPoseDetected: false
+            )
+        )
+    }
+
     func testRequiresTwoPositiveFramesToPublishPresence() {
         var smoother = PresenceSmoother()
 

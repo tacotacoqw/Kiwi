@@ -275,7 +275,13 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                     standingSample
                 )
             }
-            updateSmoothedPresence(foundFace || foundUpperBody)
+            updateSmoothedPresence(
+                PersonPresenceEvidence.isVisible(
+                    faceDetected: foundFace,
+                    upperBodyDetected: foundUpperBody,
+                    bodyPoseDetected: bodySample != nil
+                )
+            )
             if drinkDetectionEnabled {
                 let handPosition = Self.detectDrinkHandPosition(
                     faces: faceRequest.results ?? [],
@@ -725,6 +731,16 @@ enum DrinkingGestureGeometry {
         let normalizedY =
             (palm.y - mouth.y) / (faceSize.height * 0.85)
         return normalizedX * normalizedX + normalizedY * normalizedY <= 1
+    }
+}
+
+enum PersonPresenceEvidence {
+    static func isVisible(
+        faceDetected: Bool,
+        upperBodyDetected: Bool,
+        bodyPoseDetected: Bool
+    ) -> Bool {
+        faceDetected || upperBodyDetected || bodyPoseDetected
     }
 }
 

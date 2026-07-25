@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.3/Kiwi-0.1.3-macOS-universal.pkg"><strong>下载 Kiwi 0.1.3</strong></a>
+  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.4/Kiwi-0.1.4-macOS-universal.pkg"><strong>下载 Kiwi 0.1.4</strong></a>
   ·
   <a href="https://github.com/tacotacoqw/Kiwi/releases">全部版本</a>
   ·
@@ -42,7 +42,7 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 ### 安装步骤
 
 1. 下载
-   [Kiwi-0.1.3-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.3/Kiwi-0.1.3-macOS-universal.pkg)。
+   [Kiwi-0.1.4-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.4/Kiwi-0.1.4-macOS-universal.pkg)。
 2. 双击安装包并按提示完成安装，Kiwi 会自动放入“Applications / 应用程序”。
 3. 从 Finder 的“应用程序”中启动 Kiwi。
 
@@ -55,7 +55,7 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 安装包 SHA-256：
 
 ```text
-PKG  31f43f49b985d88730fd0305db3aa5c422a15c053a4e62189792edea9de1d4e4
+PKG  f4746fcea48869de083c474feb94aaa588739c8d5a9cb02d5664430ea836df89
 ```
 
 ## 主要功能
@@ -73,6 +73,7 @@ PKG  31f43f49b985d88730fd0305db3aa5c422a15c053a4e62189792edea9de1d4e4
 - 可分别设置久坐活动提醒与喝水提醒，默认间隔均为 45 分钟
 - 使用 Apple Vision 在本机判断是否持续坐在电脑前
 - 可识别站立与喝水动作，完成后自动开始下一轮计时
+- 站立识别支持正面、侧面、远近距离，以及头部或下半身被画面裁切的视角
 - 30 秒未响应时，Kiwi 会从屏幕边缘探出并持续提醒
 - 提供“10 秒体验久坐提醒”，无需等待完整间隔即可预览
 
@@ -114,7 +115,7 @@ PKG  31f43f49b985d88730fd0305db3aa5c422a15c053a4e62189792edea9de1d4e4
 
 #### macOS 26 与 14 寸刘海屏
 
-菜单栏空间不足时，macOS 可能临时隐藏部分第三方图标。Kiwi 0.1.3
+菜单栏空间不足时，macOS 可能临时隐藏部分第三方图标。Kiwi 0.1.4
 已经缩短状态项宽度，并在启动、重新打开应用和显示器变化时重新注册后台入口。
 如果图标仍被刘海或其他图标挤掉，可以使用任一备用入口：
 

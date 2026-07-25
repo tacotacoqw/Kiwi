@@ -215,6 +215,12 @@ struct StandingPoseClassifier {
     var minimumTemporalFaceRise: CGFloat = 0.10
     var minimumTemporalShoulderRise: CGFloat = 0.12
     var maximumAllowedFaceDrop: CGFloat = 0.04
+    var frameEdgeThreshold: CGFloat = 0.94
+    var minimumEdgeCroppedTorsoScale: CGFloat = 1.16
+    var minimumEdgeCroppedTorsoRise: CGFloat = 0.08
+    var minimumEdgeCroppedShoulderRise: CGFloat = 0.08
+    var minimumStrongEdgeCroppedTorsoScale: CGFloat = 1.25
+    var minimumStrongEdgeCroppedTorsoRise: CGFloat = 0.12
     var croppedTorsoWindowSize = 5
     var croppedTorsoVoteThreshold = 3
     var minimumCompactTorsoDisplacement: CGFloat = 0.025
@@ -595,6 +601,35 @@ struct StandingPoseClassifier {
         let torsoChanged =
             torsoScale >= minimumStrongCroppedTorsoScale
             || torsoScale <= maximumStrongCroppedTorsoScale
+        let currentTopEdge =
+            upperBody.centerY + upperBody.height / 2
+        let baselineTopEdge =
+            baselineUpperBodyY.map {
+                $0 + baselineUpperBodyHeight / 2
+            }
+        let topEdgeRise = baselineTopEdge.map {
+            currentTopEdge - $0
+        } ?? 0
+        let foregroundHeadIsCropped: Bool
+        if let face = sample.face {
+            let faceTouchesTopEdge =
+                face.centerY + face.height / 2
+                >= frameEdgeThreshold
+            let faceIsTooSmallForTheForegroundPerson =
+                baselineFaceHeight.map {
+                    $0 > 0
+                    && face.height / $0
+                        <= maximumStrongCroppedFaceScale
+                } ?? false
+            foregroundHeadIsCropped =
+                faceTouchesTopEdge
+                || faceIsTooSmallForTheForegroundPerson
+        } else {
+            foregroundHeadIsCropped = true
+        }
+        let isHeadCropped =
+            currentTopEdge >= frameEdgeThreshold
+            && foregroundHeadIsCropped
         let faceEvidence: Bool
         if let face = sample.face,
            let baselineFaceY,
@@ -627,14 +662,44 @@ struct StandingPoseClassifier {
             shoulderRose = false
         }
         let hipsAppeared = sample.body?.hips.count ?? 0 >= 2
+        let edgeCroppedTorsoChanged =
+            torsoScale >= minimumEdgeCroppedTorsoScale
+            && topEdgeRise >= minimumEdgeCroppedTorsoRise
+        let strongEdgeCroppedTorsoChanged =
+            torsoScale >= minimumStrongEdgeCroppedTorsoScale
+            && topEdgeRise >= minimumStrongEdgeCroppedTorsoRise
+        let edgeCroppedShoulderEvidence =
+            shoulderRose
+            || (
+                sample.body.map {
+                    guard let baselineShoulderY else { return false }
+                    return $0.shoulderY - baselineShoulderY
+                        >= minimumEdgeCroppedShoulderRise
+                } ?? false
+            )
 
         // Vision's face boxes, human rectangles, and pose joints each have
         // independent jitter. Compare every signal with its own seated
         // reference rather than requiring their absolute Y values to line up.
+        // When the person stands close to a low or narrow camera, the head can
+        // leave the frame before Vision can return a face or a complete pose.
+        // In that case, a torso that consistently reaches the top edge and has
+        // moved substantially from its seated reference is still valid
+        // standing evidence. Shoulder movement corroborates weaker torso
+        // changes, but a strong torso change can work on side/back views where
+        // body-pose joints disappear.
         // Temporal voting below prevents a single bad detector frame from
         // starting the standing timer.
         return (torsoChanged && (faceEvidence || shoulderRose))
             || (shoulderRose && hipsAppeared)
+            || (
+                isHeadCropped
+                && edgeCroppedTorsoChanged
+                && (
+                    edgeCroppedShoulderEvidence
+                    || strongEdgeCroppedTorsoChanged
+                )
+            )
     }
 
     private mutating func ingestStableCroppedTorsoCandidate(
