@@ -46,10 +46,6 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 2. 双击安装包并按提示完成安装，Kiwi 会自动放入“Applications / 应用程序”。
 3. 从 Finder 的“应用程序”中启动 Kiwi。
 
-也可以下载
-[Kiwi-0.1.1-macOS-universal.dmg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.1/Kiwi-0.1.1-macOS-universal.dmg)，
-把其中的 `Kiwi.app` 拖入“Applications / 应用程序”。
-
 > [!IMPORTANT]
 > 当前应用使用临时代码签名，安装包尚未经过 Apple Developer ID 签名与公证。
 > 若 macOS 拦截安装，请在 Finder 中右键安装包并选择“打开”；第一次启动 Kiwi
@@ -60,7 +56,6 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 
 ```text
 PKG  e9813653f5d4ac4473e46efe98541ef5cda8406cc726b70548f2ebe254370106
-DMG  07f8c0b3253bf61b05e5f8b2ab6b29750bf84bab0e766aad0433ae32265f0b93
 ```
 
 ## 主要功能
@@ -189,10 +184,7 @@ swift test --disable-sandbox
 ./scripts/build-app.sh
 open dist/Kiwi.app
 
-# 制作 DMG
-./scripts/package-dmg.sh
-
-# 制作自动安装到“应用程序”的 PKG（推荐分发）
+# 制作自动安装到“应用程序”的 PKG
 ./scripts/package-pkg.sh
 ```
 
