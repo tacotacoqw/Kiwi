@@ -1615,6 +1615,9 @@ final class FeedingInteractionTests: XCTestCase {
         )
         XCTAssertEqual(PetView.QuickAction.status.iconName, "settings.svg")
         XCTAssertNotNil(AssetLoader.icon(named: "kiwi.svg"))
+        let statusIcon = AssetLoader.statusIcon()
+        XCTAssertNotNil(statusIcon)
+        XCTAssertTrue(statusIcon?.isTemplate == true)
     }
 
     func testCameraQuickActionIsReplacedByFeedingOnly() {

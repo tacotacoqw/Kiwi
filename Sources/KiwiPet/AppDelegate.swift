@@ -438,7 +438,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.autosaveName = "KiwiStatusItem.v2"
         item.isVisible = true
         if let button = item.button {
-            button.image = AssetLoader.icon(named: "kiwi.svg")
+            // Keep the menu-bar entry visually consistent with Kiwi's
+            // front-facing app artwork. macOS recolors this alpha template
+            // automatically for light/dark menu bars.
+            button.image = AssetLoader.statusIcon()
+                ?? AssetLoader.icon(named: "kiwi.svg")
                 ?? AssetLoader.frame(named: "idle-08.png")
             button.image?.size = NSSize(width: 17, height: 17)
             button.image?.isTemplate = true

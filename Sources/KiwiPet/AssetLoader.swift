@@ -16,6 +16,25 @@ enum AssetLoader {
         return image
     }
 
+    static func statusIcon() -> NSImage? {
+        let candidates = [
+            Bundle.main.resourceURL?
+                .appendingPathComponent("StatusIconTemplate.png"),
+            URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+                .appendingPathComponent(
+                    "Assets/AppIcon/StatusIconTemplate.png"
+                )
+        ].compactMap { $0 }
+
+        guard let image = candidates.lazy.compactMap({
+            NSImage(contentsOf: $0)
+        }).first else {
+            return nil
+        }
+        image.isTemplate = true
+        return image
+    }
+
     static func sound(named name: String) -> NSSound? {
         resourceCandidates(
             named: name,

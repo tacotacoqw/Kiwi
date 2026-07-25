@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.2/Kiwi-0.1.2-macOS-universal.pkg"><strong>下载 Kiwi 0.1.2</strong></a>
+  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.3/Kiwi-0.1.3-macOS-universal.pkg"><strong>下载 Kiwi 0.1.3</strong></a>
   ·
   <a href="https://github.com/tacotacoqw/Kiwi/releases">全部版本</a>
   ·
@@ -42,7 +42,7 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 ### 安装步骤
 
 1. 下载
-   [Kiwi-0.1.2-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.2/Kiwi-0.1.2-macOS-universal.pkg)。
+   [Kiwi-0.1.3-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.3/Kiwi-0.1.3-macOS-universal.pkg)。
 2. 双击安装包并按提示完成安装，Kiwi 会自动放入“Applications / 应用程序”。
 3. 从 Finder 的“应用程序”中启动 Kiwi。
 
@@ -55,7 +55,7 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 安装包 SHA-256：
 
 ```text
-PKG  ffd83387a0087bad16cff8b2b2ce90b50fb29f488f821a260e807d644b1095b7
+PKG  31f43f49b985d88730fd0305db3aa5c422a15c053a4e62189792edea9de1d4e4
 ```
 
 ## 主要功能
@@ -66,7 +66,7 @@ PKG  ffd83387a0087bad16cff8b2b2ce90b50fb29f488f821a260e807d644b1095b7
 - 呼吸、眨眼、好奇、抖身、探头和多套散步动画
 - 接近屏幕边缘时自动转向，显示器变化后自动回到可见区域
 - 遵循 macOS“减少动态效果”无障碍设置
-- 菜单栏使用紧凑矢量图标，不占用 Dock；桌宠本身也提供后台入口
+- 菜单栏使用正面 Kiwi 黑白模板图标，不占用 Dock；桌宠本身也提供后台入口
 
 ### 健康提醒
 
@@ -114,7 +114,7 @@ PKG  ffd83387a0087bad16cff8b2b2ce90b50fb29f488f821a260e807d644b1095b7
 
 #### macOS 26 与 14 寸刘海屏
 
-菜单栏空间不足时，macOS 可能临时隐藏部分第三方图标。Kiwi 0.1.2
+菜单栏空间不足时，macOS 可能临时隐藏部分第三方图标。Kiwi 0.1.3
 已经缩短状态项宽度，并在启动、重新打开应用和显示器变化时重新注册后台入口。
 如果图标仍被刘海或其他图标挤掉，可以使用任一备用入口：
 
