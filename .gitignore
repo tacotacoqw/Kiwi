@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Packaged applications and disk images
+dist/
+
+# Xcode and editors
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.idea/
+.vscode/
+
+# Local environment and secrets
+.env
+.env.*
+*.pem
+*.p12
