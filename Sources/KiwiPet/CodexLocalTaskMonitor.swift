@@ -9,6 +9,12 @@ final class CodexLocalTaskMonitor {
     }
 
     private static let launchCatchUpWindow: TimeInterval = 30 * 60
+    /// A primary Codex session normally keeps appending lifecycle, message,
+    /// reasoning, and tool events while work is in progress. If the session
+    /// file has been completely idle for this long, an unmatched
+    /// `task_started` belongs to an interrupted/abandoned turn rather than a
+    /// task that is still running.
+    static let activeTaskInactivityTimeout: TimeInterval = 15 * 60
 
     struct ActiveTask: Equatable {
         let threadID: String
@@ -43,6 +49,7 @@ final class CodexLocalTaskMonitor {
         var offset: UInt64 = 0
         var remainder = Data()
         var activeTasks: [String: ActiveTask] = [:]
+        var lastActivityAt = Date.distantPast
     }
 
     private enum LifecycleEvent {
@@ -58,6 +65,7 @@ final class CodexLocalTaskMonitor {
     private let userDefaults: UserDefaults
     private let sessionsRoot: URL
     private let scanInterval: TimeInterval
+    private let activeTaskInactivityTimeout: TimeInterval
     private let lifecycleMarkers = [
         Data(#""type":"task_started""#.utf8),
         Data(#""type":"task_complete""#.utf8)
@@ -81,6 +89,8 @@ final class CodexLocalTaskMonitor {
     init(
         sessionsRoot: URL? = nil,
         scanInterval: TimeInterval = 5,
+        activeTaskInactivityTimeout: TimeInterval =
+            CodexLocalTaskMonitor.activeTaskInactivityTimeout,
         userDefaults: UserDefaults = .standard
     ) {
         self.userDefaults = userDefaults
@@ -89,6 +99,7 @@ final class CodexLocalTaskMonitor {
                 .appendingPathComponent(".codex")
                 .appendingPathComponent("sessions")
         self.scanInterval = scanInterval
+        self.activeTaskInactivityTimeout = activeTaskInactivityTimeout
         let recentIDs = userDefaults.stringArray(
             forKey: DefaultsKey.recentCompletionTurnIDs
         ) ?? []
@@ -164,6 +175,7 @@ final class CodexLocalTaskMonitor {
                 try readNewEvents(from: url)
             }
 
+            discardInactiveTasks(now: Date())
             sessions = sessions.filter {
                 retainedPaths.contains($0.key) || !$0.value.activeTasks.isEmpty
             }
@@ -269,7 +281,13 @@ final class CodexLocalTaskMonitor {
     ) throws -> SessionState {
         let attributes = try fileManager.attributesOfItem(atPath: url.path)
         let size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
-        var state = SessionState(threadID: threadID, offset: size)
+        let modifiedAt =
+            attributes[.modificationDate] as? Date ?? .distantPast
+        var state = SessionState(
+            threadID: threadID,
+            offset: size,
+            lastActivityAt: modifiedAt
+        )
         guard size > 0 else { return state }
 
         let handle = try FileHandle(forReadingFrom: url)
@@ -332,6 +350,7 @@ final class CodexLocalTaskMonitor {
     ) {
         switch event {
         case .started(let turnID, let date):
+            state.activeTasks.removeAll(keepingCapacity: true)
             state.activeTasks[turnID] = ActiveTask(
                 threadID: state.threadID,
                 turnID: turnID,
@@ -365,6 +384,8 @@ final class CodexLocalTaskMonitor {
         guard var state = sessions[path] else { return }
         let attributes = try fileManager.attributesOfItem(atPath: path)
         let size = (attributes[.size] as? NSNumber)?.uint64Value ?? 0
+        state.lastActivityAt =
+            attributes[.modificationDate] as? Date ?? state.lastActivityAt
         if size < state.offset {
             state.offset = 0
             state.remainder.removeAll()
@@ -390,6 +411,24 @@ final class CodexLocalTaskMonitor {
         sessions[path] = state
     }
 
+    private func discardInactiveTasks(now: Date) {
+        for path in sessions.keys {
+            guard var state = sessions[path],
+                  !state.activeTasks.isEmpty else {
+                continue
+            }
+            state.activeTasks = state.activeTasks.filter { _, task in
+                let latestEvidence = max(
+                    task.startedAt,
+                    state.lastActivityAt
+                )
+                return now.timeIntervalSince(latestEvidence)
+                    <= activeTaskInactivityTimeout
+            }
+            sessions[path] = state
+        }
+    }
+
     private func consume(
         _ line: Data.SubSequence,
         state: inout SessionState
@@ -397,6 +436,11 @@ final class CodexLocalTaskMonitor {
         guard let event = lifecycleEvent(in: line) else { return }
         switch event {
         case .started(let turnID, let date):
+            // A primary Codex thread can run only one turn at a time. A new
+            // start therefore supersedes an older unmatched start from the
+            // same session instead of allowing the abandoned turn to return
+            // after the newer task completes.
+            state.activeTasks.removeAll(keepingCapacity: true)
             state.activeTasks[turnID] = ActiveTask(
                 threadID: state.threadID,
                 turnID: turnID,

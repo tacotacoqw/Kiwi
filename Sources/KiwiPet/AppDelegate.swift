@@ -875,6 +875,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case .unavailable, .stopped:
                 self.codexLocalTaskSignalAvailable = false
                 self.codexLocalActiveTurnID = nil
+                // Do not leave a local-event timer running forever if the
+                // sessions directory temporarily disappears or monitoring is
+                // stopped. Hand control back to OCR when it already sees an
+                // active task; otherwise clear the stale task UI.
+                if case .timing(let startedAt) = self.codexTaskMonitor.status {
+                    self.beginCodexTaskTracking(startedAt: startedAt)
+                } else {
+                    self.cancelCodexTaskTracking()
+                }
             }
             self.updateCodexMenu()
         }

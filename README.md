@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.1/Kiwi-0.1.1-macOS-universal.pkg"><strong>下载 Kiwi 0.1.1</strong></a>
+  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.2/Kiwi-0.1.2-macOS-universal.pkg"><strong>下载 Kiwi 0.1.2</strong></a>
   ·
   <a href="https://github.com/tacotacoqw/Kiwi/releases">全部版本</a>
   ·
@@ -42,7 +42,7 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 ### 安装步骤
 
 1. 下载
-   [Kiwi-0.1.1-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.1/Kiwi-0.1.1-macOS-universal.pkg)。
+   [Kiwi-0.1.2-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.2/Kiwi-0.1.2-macOS-universal.pkg)。
 2. 双击安装包并按提示完成安装，Kiwi 会自动放入“Applications / 应用程序”。
 3. 从 Finder 的“应用程序”中启动 Kiwi。
 
@@ -55,7 +55,7 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 安装包 SHA-256：
 
 ```text
-PKG  e9813653f5d4ac4473e46efe98541ef5cda8406cc726b70548f2ebe254370106
+PKG  ffd83387a0087bad16cff8b2b2ce90b50fb29f488f821a260e807d644b1095b7
 ```
 
 ## 主要功能
@@ -81,6 +81,7 @@ PKG  e9813653f5d4ac4473e46efe98541ef5cda8406cc726b70548f2ebe254370106
 - 优先读取 Codex 本机 `task_started` / `task_complete` 事件
 - 任务开始后开放随机休息活动，包括短视频、喂食、敲木鱼与计时休息
 - 任务超过 5 分钟会更新提醒，超过 10 分钟会切换到长视频
+- 异常中断后会自动清理失去活动的旧任务，不会无限累计处理时间
 - 完成后显示处理耗时，也可选择发送飞书手机通知
 - 本机事件不可用时，可在已有系统权限的前提下使用画面识别作为后备
 
@@ -113,7 +114,7 @@ PKG  e9813653f5d4ac4473e46efe98541ef5cda8406cc726b70548f2ebe254370106
 
 #### macOS 26 与 14 寸刘海屏
 
-菜单栏空间不足时，macOS 可能临时隐藏部分第三方图标。Kiwi 0.1.1
+菜单栏空间不足时，macOS 可能临时隐藏部分第三方图标。Kiwi 0.1.2
 已经缩短状态项宽度，并在启动、重新打开应用和显示器变化时重新注册后台入口。
 如果图标仍被刘海或其他图标挤掉，可以使用任一备用入口：
 
