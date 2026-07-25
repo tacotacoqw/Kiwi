@@ -173,10 +173,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return minutes * 60
     }
 
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    func applicationWillFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         registerDefaults()
         soundEnabled = userDefaults.bool(forKey: DefaultsKey.soundEnabled)
+        if !animationPreviewMode {
+            createStatusMenu()
+        }
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
         createPet()
         if animationPreviewMode {
             petView.monitorState = .off
@@ -209,7 +215,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             return
         }
-        createStatusMenu()
         connectMonitoring()
         connectCodexTaskMonitoring()
         startHeartbeat()
@@ -248,6 +253,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         updateMenu()
+    }
+
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        statusItem?.isVisible = true
+        showKiwi()
+        return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -304,6 +318,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         petView.onQuickAction = { [weak self] action in
             self?.handlePetQuickAction(action)
+        }
+        petView.onContextMenu = { [weak self] point in
+            guard let self, let menu = self.statusItem?.menu else { return }
+            menu.popUp(
+                positioning: nil,
+                at: point,
+                in: self.petView
+            )
         }
         petView.onSoundEnabledChanged = { [weak self] enabled in
             guard let self else { return }
@@ -398,6 +420,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func createStatusMenu() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem.autosaveName = "KiwiStatusItem"
+        statusItem.isVisible = true
         if let button = statusItem.button {
             let statusIcon = Bundle.main.url(
                 forResource: "StatusIconTemplate",

@@ -321,6 +321,7 @@ final class PetView: NSView {
 
     var onTap: (() -> Void)?
     var onQuickAction: ((QuickAction) -> Void)?
+    var onContextMenu: ((NSPoint) -> Void)?
     var onSoundEnabledChanged: ((Bool) -> Void)?
     var onPositionChanged: ((NSPoint) -> Void)?
 
@@ -2633,6 +2634,10 @@ final class PetView: NSView {
         }
         mouseDownLocation = nil
         windowOriginOnMouseDown = nil
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        onContextMenu?(convert(event.locationInWindow, from: nil))
     }
 }
 

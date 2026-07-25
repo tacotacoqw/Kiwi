@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.0/Kiwi-0.1.0-macOS-universal.dmg"><strong>下载 Kiwi 0.1.0</strong></a>
+  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.0/Kiwi-0.1.0-macOS-universal.pkg"><strong>下载 Kiwi 0.1.0</strong></a>
   ·
   <a href="https://github.com/tacotacoqw/Kiwi/releases">全部版本</a>
   ·
@@ -41,20 +41,20 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 ### 安装步骤
 
 1. 下载
-   [Kiwi-0.1.0-macOS-universal.dmg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.0/Kiwi-0.1.0-macOS-universal.dmg)。
-2. 双击打开 DMG。
-3. 将 `Kiwi.app` 拖到旁边的“Applications / 应用程序”文件夹。
-4. 从 Finder 的“应用程序”中启动 Kiwi。
+   [Kiwi-0.1.0-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.0/Kiwi-0.1.0-macOS-universal.pkg)。
+2. 双击安装包并按提示完成安装，Kiwi 会自动放入“Applications / 应用程序”。
+3. 从 Finder 的“应用程序”中启动 Kiwi。
 
 > [!IMPORTANT]
-> 当前安装包使用临时代码签名，尚未经过 Apple Developer ID 公证。
-> 第一次启动若出现安全提示，请在 Finder 中右键 `Kiwi.app`，选择“打开”，
-> 再确认一次。请只从本仓库的 Releases 页面下载安装包。
+> 当前应用使用临时代码签名，安装包尚未经过 Apple Developer ID 签名与公证。
+> 若 macOS 拦截安装，请在 Finder 中右键安装包并选择“打开”；第一次启动 Kiwi
+> 若再次出现安全提示，请在“应用程序”中右键 `Kiwi.app`，选择“打开”。
+> 请只从本仓库的 Releases 页面下载安装包。
 
 安装包 SHA-256：
 
 ```text
-25ccf07407435cd697186abc14c288d5039f2500a68da1dd70f8153fb7634ca0
+a8df23f0a087faecbc51c3835e53023e06612032c07d2309e38dbf05dcea3bd1
 ```
 
 ## 主要功能
@@ -106,6 +106,7 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 - **拖动 Kiwi**：按住它并拖到喜欢的位置。
 - **单击 Kiwi**：展开“状态、散步、日历、喂食”快捷按钮。
 - **双击 Kiwi**：让它立即起来散步。
+- **右键 Kiwi**：直接打开完整后台菜单；菜单栏拥挤时也可使用。
 - **找回 Kiwi**：从菜单栏选择“显示 Kiwi”。
 - **退出**：从菜单栏选择“退出 Kiwi”。
 
@@ -173,6 +174,9 @@ open dist/Kiwi.app
 
 # 制作 DMG
 ./scripts/package-dmg.sh
+
+# 制作自动安装到“应用程序”的 PKG（推荐分发）
+./scripts/package-pkg.sh
 ```
 
 构建结果不会提交到 Git；应用和安装包位于 `dist/`。
@@ -184,7 +188,7 @@ Kiwi/
 ├── Assets/                 # 图标、动画帧、音效与预览
 ├── Sources/KiwiPet/        # AppKit 应用源码
 ├── Tests/KiwiPetTests/     # 行为、提醒和界面逻辑测试
-├── scripts/                # 素材处理、构建与 DMG 打包脚本
+├── scripts/                # 素材处理、构建与安装包脚本
 ├── Info.plist              # macOS 应用元数据与权限说明
 └── Package.swift           # Swift Package 配置
 ```

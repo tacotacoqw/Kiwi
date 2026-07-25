@@ -41,6 +41,7 @@ cp "$PROJECT_DIR/Assets/AppIcon/StatusIconTemplate.png" "$STAGING_DIR/Contents/R
 cp "$PROJECT_DIR"/Assets/Frames/*.png "$STAGING_DIR/Contents/Resources/Frames/"
 cp "$PROJECT_DIR"/Assets/Icons/*.svg "$STAGING_DIR/Contents/Resources/Icons/"
 cp "$PROJECT_DIR"/Assets/Sounds/*.mp3 "$STAGING_DIR/Contents/Resources/Sounds/"
+xattr -cr "$STAGING_DIR"
 
 # A plain ad-hoc signature synthesizes a cdhash-only designated requirement,
 # which changes for every build. The login keychain then treats each build as
