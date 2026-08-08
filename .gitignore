@@ -21,3 +21,6 @@ xcuserdata/
 .env.*
 *.pem
 *.p12
+
+# Local website workspace
+website/
