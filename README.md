@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.4/Kiwi-0.1.4-macOS-universal.pkg"><strong>下载 Kiwi 0.1.4</strong></a>
+  <a href="https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.5/Kiwi-0.1.5-macOS-universal.pkg"><strong>下载 Kiwi 0.1.5</strong></a>
   ·
   <a href="https://github.com/tacotacoqw/Kiwi/releases">全部版本</a>
   ·
@@ -42,7 +42,7 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 ### 安装步骤
 
 1. 下载
-   [Kiwi-0.1.4-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.4/Kiwi-0.1.4-macOS-universal.pkg)。
+   [Kiwi-0.1.5-macOS-universal.pkg](https://github.com/tacotacoqw/Kiwi/releases/download/v0.1.5/Kiwi-0.1.5-macOS-universal.pkg)。
 2. 双击安装包并按提示完成安装，Kiwi 会自动放入“Applications / 应用程序”。
 3. 从 Finder 的“应用程序”中启动 Kiwi。
 
@@ -55,7 +55,7 @@ Kiwi 是一个使用 Swift、AppKit 与 Apple Vision 开发的原生 macOS
 安装包 SHA-256：
 
 ```text
-PKG  f4746fcea48869de083c474feb94aaa588739c8d5a9cb02d5664430ea836df89
+PKG  9d86c5e48487d72f9a421321ac35f52694221d6d805d591fc4bcbffce3f20876
 ```
 
 ## 主要功能
