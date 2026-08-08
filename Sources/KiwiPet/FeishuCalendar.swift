@@ -178,7 +178,6 @@ enum FeishuCalendarError: LocalizedError {
     case invalidResponse
     case api(code: Int, message: String)
     case http(status: Int)
-    case noApplicationCalendar
     case noUserCalendar
     case missingTargetUser
 
@@ -194,8 +193,6 @@ enum FeishuCalendarError: LocalizedError {
             return "飞书接口错误 \(code)：\(message)"
         case .http(let status):
             return "飞书网络请求失败（HTTP \(status)）。"
-        case .noApplicationCalendar:
-            return "没有找到 Kiwi 的应用主日历，请检查日历权限。"
         case .noUserCalendar:
             return "没有找到提醒对象的个人主日历，请检查 Open ID 和日历读取权限。"
         case .missingTargetUser:
@@ -235,33 +232,6 @@ final class FeishuCalendarService {
             token: token
         )
         return FeishuSyncResult(calendarID: calendarID, events: events)
-    }
-
-    func createTestReminder(
-        configuration: FeishuConfiguration
-    ) async throws -> FeishuCalendarEvent {
-        guard !configuration.targetOpenID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw FeishuCalendarError.missingTargetUser
-        }
-
-        let token = try await tenantAccessToken(configuration: configuration)
-        let calendarID = try await resolveApplicationCalendarID(token: token)
-        let startDate = Date().addingTimeInterval(2 * 60)
-        let endDate = startDate.addingTimeInterval(30 * 60)
-        let event = try await createEvent(
-            calendarID: calendarID,
-            title: "Kiwi 飞书提醒测试",
-            startDate: startDate,
-            endDate: endDate,
-            token: token
-        )
-        try await addAttendee(
-            configuration.targetOpenID,
-            calendarID: calendarID,
-            eventID: event.eventID,
-            token: token
-        )
-        return event
     }
 
     func sendCodexCompletionNotification(
@@ -414,33 +384,6 @@ final class FeishuCalendarService {
         return calendarID
     }
 
-    private func resolveApplicationCalendarID(token: String) async throws -> String {
-        var components = URLComponents(
-            url: apiRoot
-                .appendingPathComponent("calendar")
-                .appendingPathComponent("v4")
-                .appendingPathComponent("calendars"),
-            resolvingAgainstBaseURL: false
-        )
-        components?.queryItems = [URLQueryItem(name: "page_size", value: "50")]
-        guard let url = components?.url else {
-            throw FeishuCalendarError.invalidURL
-        }
-        let json = try await requestJSON(url: url, token: token)
-        guard let data = json["data"] as? [String: Any] else {
-            throw FeishuCalendarError.invalidResponse
-        }
-        let calendars = (data["calendar_list"] as? [[String: Any]])
-            ?? (data["items"] as? [[String: Any]])
-            ?? []
-        let primary = calendars.first { ($0["type"] as? String) == "primary" }
-        guard let calendarID = (primary ?? calendars.first)?["calendar_id"] as? String,
-              !calendarID.isEmpty else {
-            throw FeishuCalendarError.noApplicationCalendar
-        }
-        return calendarID
-    }
-
     private func listEvents(
         calendarID: String,
         startDate: Date,
@@ -482,85 +425,6 @@ final class FeishuCalendarService {
         } while pageToken != nil
 
         return allEvents
-    }
-
-    private func createEvent(
-        calendarID: String,
-        title: String,
-        startDate: Date,
-        endDate: Date,
-        token: String
-    ) async throws -> FeishuCalendarEvent {
-        let url = apiRoot
-            .appendingPathComponent("calendar")
-            .appendingPathComponent("v4")
-            .appendingPathComponent("calendars")
-            .appendingPathComponent(calendarID)
-            .appendingPathComponent("events")
-        let timeZone = TimeZone.current.identifier
-        let json = try await requestJSON(
-            url: url,
-            method: "POST",
-            token: token,
-            body: [
-                "summary": title,
-                "description": "由 Kiwi 桌宠创建的测试提醒。",
-                "need_notification": true,
-                "start_time": [
-                    "timestamp": String(Int(startDate.timeIntervalSince1970)),
-                    "timezone": timeZone
-                ],
-                "end_time": [
-                    "timestamp": String(Int(endDate.timeIntervalSince1970)),
-                    "timezone": timeZone
-                ],
-                "visibility": "default",
-                "attendee_ability": "can_see_others",
-                "free_busy_status": "busy",
-                "reminders": [["minutes": 1]]
-            ]
-        )
-        guard let data = json["data"] as? [String: Any],
-              let eventJSON = data["event"] as? [String: Any],
-              let event = parseEvent(eventJSON) else {
-            throw FeishuCalendarError.invalidResponse
-        }
-        return event
-    }
-
-    private func addAttendee(
-        _ openID: String,
-        calendarID: String,
-        eventID: String,
-        token: String
-    ) async throws {
-        let baseURL = apiRoot
-            .appendingPathComponent("calendar")
-            .appendingPathComponent("v4")
-            .appendingPathComponent("calendars")
-            .appendingPathComponent(calendarID)
-            .appendingPathComponent("events")
-            .appendingPathComponent(eventID)
-            .appendingPathComponent("attendees")
-        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)
-        components?.queryItems = [URLQueryItem(name: "user_id_type", value: "open_id")]
-        guard let url = components?.url else {
-            throw FeishuCalendarError.invalidURL
-        }
-        _ = try await requestJSON(
-            url: url,
-            method: "POST",
-            token: token,
-            body: [
-                "attendees": [
-                    [
-                        "type": "user",
-                        "user_id": openID.trimmingCharacters(in: .whitespacesAndNewlines)
-                    ]
-                ],
-                "need_notification": true
-            ]
-        )
     }
 
     private func parseEvent(_ json: [String: Any]) -> FeishuCalendarEvent? {

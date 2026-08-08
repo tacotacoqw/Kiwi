@@ -60,23 +60,26 @@ final class DrinkingGestureDetectorTests: XCTestCase {
         var detector = DrinkingGestureDetector()
 
         XCTAssertFalse(detector.ingest(.noHand, at: 0))
-        XCTAssertFalse(detector.ingest(.nearMouth, at: 0.5))
+        XCTAssertFalse(detector.ingest(.noHand, at: 0.5))
         XCTAssertFalse(detector.ingest(.nearMouth, at: 1))
         XCTAssertFalse(detector.ingest(.nearMouth, at: 1.5))
-        XCTAssertFalse(detector.ingest(.noHand, at: 2))
-        XCTAssertTrue(detector.ingest(.noHand, at: 2.5))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 2))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 2.5))
+        XCTAssertFalse(detector.ingest(.noHand, at: 3))
+        XCTAssertTrue(detector.ingest(.noHand, at: 3.5))
     }
 
     func testBriefHandOcclusionDuringSipDoesNotLoseProgress() {
         var detector = DrinkingGestureDetector()
 
         XCTAssertFalse(detector.ingest(.noHand, at: 0))
-        XCTAssertFalse(detector.ingest(.nearMouth, at: 0.5))
+        XCTAssertFalse(detector.ingest(.noHand, at: 0.5))
         XCTAssertFalse(detector.ingest(.nearMouth, at: 1))
-        XCTAssertFalse(detector.ingest(.noHand, at: 1.5))
-        XCTAssertFalse(detector.ingest(.nearMouth, at: 2))
-        XCTAssertFalse(detector.ingest(.noHand, at: 2.5))
-        XCTAssertTrue(detector.ingest(.noHand, at: 3))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 1.5))
+        XCTAssertFalse(detector.ingest(.noHand, at: 2))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 2.5))
+        XCTAssertFalse(detector.ingest(.noHand, at: 3))
+        XCTAssertTrue(detector.ingest(.noHand, at: 3.5))
     }
 
     func testRequiresReadyHoldAndReleaseSequence() {
@@ -113,10 +116,53 @@ final class DrinkingGestureDetectorTests: XCTestCase {
         var detector = DrinkingGestureDetector()
 
         XCTAssertFalse(detector.ingest(.away, at: 0))
-        XCTAssertFalse(detector.ingest(.nearMouth, at: 0.5))
+        XCTAssertFalse(detector.ingest(.away, at: 0.5))
         XCTAssertFalse(detector.ingest(.nearMouth, at: 1))
-        XCTAssertFalse(detector.ingest(.away, at: 1.5))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 1.5))
         XCTAssertFalse(detector.ingest(.away, at: 2))
+        XCTAssertFalse(detector.ingest(.away, at: 2.5))
+    }
+
+    func testOneNoHandFrameDoesNotArmAHandAlreadyAtTheFace() {
+        var detector = DrinkingGestureDetector()
+
+        XCTAssertFalse(detector.ingest(.noHand, at: 0))
+        for index in 1...6 {
+            XCTAssertFalse(
+                detector.ingest(
+                    .nearMouth,
+                    at: TimeInterval(index) * 0.5
+                )
+            )
+        }
+        XCTAssertFalse(detector.ingest(.away, at: 3.5))
+        XCTAssertFalse(detector.ingest(.away, at: 4))
+    }
+
+    func testUnavailableCameraFramesCannotCompleteADrink() {
+        var detector = DrinkingGestureDetector()
+
+        XCTAssertFalse(detector.ingest(.away, at: 0))
+        XCTAssertFalse(detector.ingest(.away, at: 0.5))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 1))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 1.5))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 2))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 2.5))
+        XCTAssertFalse(detector.ingest(.unavailable, at: 3))
+        XCTAssertFalse(detector.ingest(.unavailable, at: 3.5))
+        XCTAssertFalse(detector.ingest(.unavailable, at: 4))
+    }
+
+    func testLongAnalysisGapCannotSatisfyTheHoldDuration() {
+        var detector = DrinkingGestureDetector()
+
+        XCTAssertFalse(detector.ingest(.away, at: 0))
+        XCTAssertFalse(detector.ingest(.away, at: 0.5))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 1))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 4))
+        XCTAssertFalse(detector.ingest(.nearMouth, at: 4.5))
+        XCTAssertFalse(detector.ingest(.away, at: 5))
+        XCTAssertFalse(detector.ingest(.away, at: 5.5))
     }
 
     func testMouthRegionUsesPalmCenterAndTightEllipse() {
@@ -140,6 +186,13 @@ final class DrinkingGestureDetectorTests: XCTestCase {
         XCTAssertFalse(
             DrinkingGestureGeometry.isNearMouth(
                 palm: CGPoint(x: 0.56, y: 0.84),
+                mouth: mouth,
+                faceSize: faceSize
+            )
+        )
+        XCTAssertFalse(
+            DrinkingGestureGeometry.isNearMouth(
+                palm: CGPoint(x: 0.65, y: 0.62),
                 mouth: mouth,
                 faceSize: faceSize
             )

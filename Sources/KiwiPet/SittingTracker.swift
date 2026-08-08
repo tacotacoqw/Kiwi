@@ -180,6 +180,93 @@ struct StandingDetectionProgress: Equatable {
     let requiredDuration: TimeInterval
 }
 
+struct StandingPostureLatch {
+    var requiredSeatedDuration: TimeInterval = 4
+    var maximumFrameGap: TimeInterval = 2.25
+
+    private(set) var isStandingLatched = false
+    private var seatedMatchStartedAt: TimeInterval?
+    private var lastSampleAt: TimeInterval?
+
+    mutating func markStandingConfirmed() {
+        isStandingLatched = true
+        seatedMatchStartedAt = nil
+        lastSampleAt = nil
+    }
+
+    mutating func updateSeatedMatch(
+        _ matchesSeatedReference: Bool,
+        at time: TimeInterval
+    ) -> Bool {
+        guard isStandingLatched else { return false }
+
+        if let lastSampleAt,
+           time - lastSampleAt > maximumFrameGap {
+            seatedMatchStartedAt = nil
+        }
+        lastSampleAt = time
+
+        guard matchesSeatedReference else {
+            seatedMatchStartedAt = nil
+            return false
+        }
+        if seatedMatchStartedAt == nil {
+            seatedMatchStartedAt = time
+        }
+        guard let seatedMatchStartedAt,
+              time - seatedMatchStartedAt >= requiredSeatedDuration else {
+            return false
+        }
+
+        isStandingLatched = false
+        self.seatedMatchStartedAt = nil
+        return true
+    }
+
+    func effectiveObservation(
+        rawObservation: StandingPoseObservation,
+        matchesSeatedReference: Bool
+    ) -> StandingPoseObservation {
+        if matchesSeatedReference {
+            return .notStanding
+        }
+        if isStandingLatched {
+            return .standing
+        }
+        return rawObservation
+    }
+
+    mutating func reset() {
+        isStandingLatched = false
+        seatedMatchStartedAt = nil
+        lastSampleAt = nil
+    }
+}
+
+private struct StandingReferenceWindow {
+    var capacity = 21
+
+    private var values: [CGFloat] = []
+
+    mutating func ingest(_ value: CGFloat) -> CGFloat {
+        values.append(value)
+        if values.count > capacity {
+            values.removeFirst(values.count - capacity)
+        }
+
+        let sorted = values.sorted()
+        let middle = sorted.count / 2
+        if sorted.count.isMultiple(of: 2) {
+            return (sorted[middle - 1] + sorted[middle]) / 2
+        }
+        return sorted[middle]
+    }
+
+    mutating func reset() {
+        values.removeAll(keepingCapacity: true)
+    }
+}
+
 struct StandingPoseClassifier {
     var moderateRise: CGFloat = 0.025
     var strongRise: CGFloat = 0.045
@@ -190,7 +277,6 @@ struct StandingPoseClassifier {
     var minimumTorsoReveal: CGFloat = 0.012
     var minimumShoulderShift: CGFloat = 0.008
     var nearFaceHeightThreshold: CGFloat = 0.15
-    var referenceSmoothing: CGFloat = 0.18
     var minimumLegSpan: CGFloat = 0.18
     var minimumStraightKneeAngle: CGFloat = 150
     var minimum3DKneeAngle: CGFloat = 125
@@ -225,8 +311,20 @@ struct StandingPoseClassifier {
     var croppedTorsoVoteThreshold = 3
     var minimumCompactTorsoDisplacement: CGFloat = 0.025
     var minimumCompactLowerEdgeReveal: CGFloat = 0.06
+    var seatedFacePositionTolerance: CGFloat = 0.055
+    var minimumSeatedFaceScale: CGFloat = 0.80
+    var maximumSeatedFaceScale: CGFloat = 1.25
+    var seatedUpperBodyPositionTolerance: CGFloat = 0.055
+    var minimumSeatedUpperBodyScale: CGFloat = 0.82
+    var maximumSeatedUpperBodyScale: CGFloat = 1.22
+    var seatedShoulderPositionTolerance: CGFloat = 0.05
 
     private var croppedTorsoCandidates: [Bool] = []
+    private var faceYReferences = StandingReferenceWindow()
+    private var faceHeightReferences = StandingReferenceWindow()
+    private var shoulderYReferences = StandingReferenceWindow()
+    private var upperBodyYReferences = StandingReferenceWindow()
+    private var upperBodyHeightReferences = StandingReferenceWindow()
     private(set) var activePreset: StandingDetectionPreset?
     private(set) var baselineFaceY: CGFloat?
     private(set) var baselineFaceHeight: CGFloat?
@@ -238,30 +336,17 @@ struct StandingPoseClassifier {
         _ sample: StandingFrameSample
     ) {
         if let face = sample.face {
-            baselineFaceY = smoothedReference(
-                baselineFaceY,
-                newValue: face.centerY
-            )
-            baselineFaceHeight = smoothedReference(
-                baselineFaceHeight,
-                newValue: face.height
-            )
+            baselineFaceY = faceYReferences.ingest(face.centerY)
+            baselineFaceHeight = faceHeightReferences.ingest(face.height)
         }
         if let upperBody = sample.upperBody {
-            baselineUpperBodyY = smoothedReference(
-                baselineUpperBodyY,
-                newValue: upperBody.centerY
-            )
-            baselineUpperBodyHeight = smoothedReference(
-                baselineUpperBodyHeight,
-                newValue: upperBody.height
-            )
+            baselineUpperBodyY =
+                upperBodyYReferences.ingest(upperBody.centerY)
+            baselineUpperBodyHeight =
+                upperBodyHeightReferences.ingest(upperBody.height)
         }
         if let shoulderY = sample.body?.shoulderY {
-            baselineShoulderY = smoothedReference(
-                baselineShoulderY,
-                newValue: shoulderY
-            )
+            baselineShoulderY = shoulderYReferences.ingest(shoulderY)
         }
 
         if let baselineFaceHeight {
@@ -723,8 +808,71 @@ struct StandingPoseClassifier {
         activePreset ?? inferredPreset(from: sample)
     }
 
+    func matchesSeatedReference(
+        _ sample: StandingFrameSample
+    ) -> Bool {
+        let faceMatches: Bool?
+        if let face = sample.face,
+           let baselineFaceY,
+           let baselineFaceHeight,
+           baselineFaceHeight > 0 {
+            let scale = face.height / baselineFaceHeight
+            faceMatches =
+                abs(face.centerY - baselineFaceY)
+                    <= seatedFacePositionTolerance
+                && scale >= minimumSeatedFaceScale
+                && scale <= maximumSeatedFaceScale
+        } else {
+            faceMatches = nil
+        }
+
+        let upperBodyMatches: Bool?
+        if let upperBody = sample.upperBody,
+           let baselineUpperBodyY,
+           let baselineUpperBodyHeight,
+           baselineUpperBodyHeight > 0 {
+            let scale = upperBody.height / baselineUpperBodyHeight
+            upperBodyMatches =
+                abs(upperBody.centerY - baselineUpperBodyY)
+                    <= seatedUpperBodyPositionTolerance
+                && scale >= minimumSeatedUpperBodyScale
+                && scale <= maximumSeatedUpperBodyScale
+        } else {
+            upperBodyMatches = nil
+        }
+
+        let shoulderMatches: Bool?
+        if let body = sample.body,
+           let baselineShoulderY {
+            shoulderMatches =
+                abs(body.shoulderY - baselineShoulderY)
+                    <= seatedShoulderPositionTolerance
+        } else {
+            shoulderMatches = nil
+        }
+
+        let availableMatches = [
+            faceMatches,
+            upperBodyMatches,
+            shoulderMatches
+        ].compactMap { $0 }
+        let matchingSignalCount = availableMatches.filter { $0 }.count
+        if availableMatches.count >= 2 {
+            return matchingSignalCount >= 2
+        }
+        if faceMatches == true {
+            return true
+        }
+        return false
+    }
+
     mutating func reset() {
         resetDetectionEvidence()
+        faceYReferences.reset()
+        faceHeightReferences.reset()
+        shoulderYReferences.reset()
+        upperBodyYReferences.reset()
+        upperBodyHeightReferences.reset()
         activePreset = nil
         baselineFaceY = nil
         baselineFaceHeight = nil
@@ -882,15 +1030,6 @@ struct StandingPoseClassifier {
         return 0
     }
 
-    private func smoothedReference(
-        _ current: CGFloat?,
-        newValue: CGFloat
-    ) -> CGFloat {
-        guard let current else { return newValue }
-        return current
-            + (newValue - current) * referenceSmoothing
-    }
-
     private func isClearlyStraight(_ leg: StandingLegPose) -> Bool {
         guard leg.hip.y > leg.knee.y,
               leg.knee.y > leg.ankle.y,
@@ -1041,6 +1180,78 @@ struct StandingGestureDetector {
         notStandingStartedAt = nil
         unavailableStartedAt = nil
         standingFrames = 0
+    }
+}
+
+struct StandingAbsenceDetector {
+    var requiredDuration: TimeInterval = 10
+    var requiredAbsentFrames = 4
+    var resetAfterVisibleDuration: TimeInterval = 2
+    var maximumPreservedGap: TimeInterval = 12
+
+    private var absenceStartedAt: TimeInterval?
+    private var visibleStartedAt: TimeInterval?
+    private var lastSampleAt: TimeInterval?
+    private var absentFrames = 0
+    private(set) var isConfirmed = false
+
+    mutating func ingest(
+        isPersonVisible: Bool,
+        at time: TimeInterval
+    ) -> Bool {
+        guard !isConfirmed else { return false }
+
+        if let lastSampleAt,
+           time - lastSampleAt > maximumPreservedGap {
+            resetProgress()
+        }
+        lastSampleAt = time
+
+        if isPersonVisible {
+            if visibleStartedAt == nil {
+                visibleStartedAt = time
+            }
+            if let visibleStartedAt,
+               time - visibleStartedAt >= resetAfterVisibleDuration {
+                resetProgress()
+                lastSampleAt = time
+            }
+            return false
+        }
+
+        visibleStartedAt = nil
+        if absenceStartedAt == nil {
+            absenceStartedAt = time
+        }
+        absentFrames += 1
+
+        guard absentFrames >= requiredAbsentFrames,
+              let absenceStartedAt,
+              time - absenceStartedAt >= requiredDuration else {
+            return false
+        }
+        isConfirmed = true
+        return true
+    }
+
+    mutating func reset() {
+        resetProgress()
+        isConfirmed = false
+    }
+
+    func confirmedDuration(at time: TimeInterval) -> TimeInterval {
+        guard let absenceStartedAt else { return 0 }
+        return min(
+            requiredDuration,
+            max(0, time - absenceStartedAt)
+        )
+    }
+
+    private mutating func resetProgress() {
+        absenceStartedAt = nil
+        visibleStartedAt = nil
+        lastSampleAt = nil
+        absentFrames = 0
     }
 }
 

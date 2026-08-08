@@ -589,16 +589,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(hydrationDemoItem)
 
         menu.addItem(.separator())
-        let walkItem = NSMenuItem(
-            title: "让 Kiwi 走一走",
-            action: #selector(startWalk),
-            keyEquivalent: ""
-        )
-        walkItem.target = self
-        applyMenuIcon(walkItem, named: "walk.svg")
-        menu.addItem(walkItem)
-
-        menu.addItem(.separator())
         codexMenuRootItem = NSMenuItem(
             title: "Codex 画面监测（等待启动）",
             action: nil,
@@ -706,15 +696,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         feishuSyncItem.target = self
         applyMenuIcon(feishuSyncItem, named: "sync.svg")
         feishuMenu.addItem(feishuSyncItem)
-
-        let feishuTestItem = NSMenuItem(
-            title: "创建 2 分钟测试提醒",
-            action: #selector(createFeishuTestReminder),
-            keyEquivalent: ""
-        )
-        feishuTestItem.target = self
-        applyMenuIcon(feishuTestItem, named: "bell.svg")
-        feishuMenu.addItem(feishuTestItem)
 
         feishuItem.submenu = feishuMenu
         menu.addItem(feishuItem)
@@ -2027,11 +2008,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateMenu()
     }
 
-    @objc private func startWalk() {
-        petView.startWalkNow()
-        petView.showMessage("出发散步！", duration: 3)
-    }
-
     @objc private func previewPerformance() {
         ensurePetIsVisible()
         petView.playPerformanceNow()
@@ -2218,54 +2194,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func syncFeishuNow() {
         syncFeishuCalendar(showFeedback: true)
-    }
-
-    @objc private func createFeishuTestReminder() {
-        guard !feishuSyncInProgress else { return }
-        let configuration = feishuConfigurationStore.load()
-        guard configuration.hasCredentials else {
-            openFeishuSettings()
-            feishuSettingsController?.setStatus("请先配置飞书连接。", isError: true)
-            return
-        }
-        guard !configuration.targetOpenID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            openFeishuSettings()
-            feishuSettingsController?.setStatus(
-                "请填写提醒对象 Open ID，才能把日程邀请发给那个人。",
-                isError: true
-            )
-            return
-        }
-
-        feishuSyncInProgress = true
-        updateFeishuStatus("创建测试提醒…")
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            do {
-                let event = try await self.feishuCalendarService.createTestReminder(
-                    configuration: configuration
-                )
-                self.cachedFeishuEvents.removeAll {
-                    self.eventAlertKey($0) == self.eventAlertKey(event)
-                }
-                self.cachedFeishuEvents.append(event)
-                self.alertedFeishuEvents[self.eventAlertKey(event)] = Date()
-                self.ensurePetIsVisible()
-                self.petView.showWorkAlert(
-                    details: self.feishuEventDescription(event, now: Date())
-                )
-                self.updateFeishuStatus("测试提醒已创建")
-                self.feishuSettingsController?.setStatus(
-                    "测试日程已创建；会按重复间隔继续自动播报。"
-                )
-            } catch {
-                let message = error.localizedDescription
-                self.updateFeishuStatus("测试失败")
-                self.petView.showMessage("创建飞书提醒失败：\(message)", duration: 12)
-                self.feishuSettingsController?.setStatus(message, isError: true)
-            }
-            self.feishuSyncInProgress = false
-        }
     }
 
     @objc private func previewFeishuWorkAlert() {

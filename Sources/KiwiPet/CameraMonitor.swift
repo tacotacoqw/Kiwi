@@ -34,6 +34,8 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         StandingBodyPose3DStabilizer()
     private var standingObservationSmoother = StandingObservationSmoother()
     private var standingGestureDetector = StandingGestureDetector()
+    private var standingAbsenceDetector = StandingAbsenceDetector()
+    private var standingPostureLatch = StandingPostureLatch()
     private var standingDiagnosticsFile: FileHandle?
     private let standingDiagnosticsURL = URL(
         fileURLWithPath: "/private/tmp/kiwi-standing-diagnostics.log"
@@ -85,6 +87,8 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                 self.standingBody3DStabilizer.reset()
                 self.standingObservationSmoother.reset()
                 self.standingGestureDetector.reset()
+                self.standingAbsenceDetector.reset()
+                self.standingPostureLatch.reset()
                 self.stopStandingDiagnostics()
                 if let presence = self.presenceSmoother.reset() {
                     self.publishPresence(presence)
@@ -101,8 +105,13 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             self.standingBody3DStabilizer.reset()
             self.standingObservationSmoother.reset()
             self.standingGestureDetector.reset()
+            self.standingAbsenceDetector.reset()
             if !enabled {
-                self.standingPoseClassifier.reset()
+                if self.standingPostureLatch.isStandingLatched {
+                    self.standingPoseClassifier.resetDetectionEvidence()
+                } else {
+                    self.standingPoseClassifier.reset()
+                }
                 self.stopStandingDiagnostics()
             }
             if enabled {
@@ -270,21 +279,37 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                 body: bodySample,
                 body3D: body3DSample
             )
-            if !standingDetectionEnabled {
+            let personVisible = PersonPresenceEvidence.isVisible(
+                faceDetected: foundFace,
+                upperBodyDetected: foundUpperBody,
+                bodyPoseDetected: bodySample != nil
+            )
+            let matchesSeatedReference =
+                personVisible
+                && standingPoseClassifier.matchesSeatedReference(
+                    standingSample
+                )
+            let returnedToSeat = standingPostureLatch.updateSeatedMatch(
+                matchesSeatedReference,
+                at: now
+            )
+            if returnedToSeat {
+                standingPoseClassifier.reset()
+                standingPoseClassifier.observeSeatedReference(
+                    standingSample
+                )
+                standingObservationSmoother.reset()
+                standingGestureDetector.reset()
+            } else if !standingDetectionEnabled,
+                      !standingPostureLatch.isStandingLatched {
                 standingPoseClassifier.observeSeatedReference(
                     standingSample
                 )
             }
-            updateSmoothedPresence(
-                PersonPresenceEvidence.isVisible(
-                    faceDetected: foundFace,
-                    upperBodyDetected: foundUpperBody,
-                    bodyPoseDetected: bodySample != nil
-                )
-            )
+            updateSmoothedPresence(personVisible)
             if drinkDetectionEnabled {
                 let handPosition = Self.detectDrinkHandPosition(
-                    faces: faceRequest.results ?? [],
+                    faces: bestFace.map { [$0] } ?? [],
                     hands: handRequest.results ?? []
                 )
                 if drinkingGestureDetector.ingest(
@@ -295,20 +320,39 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                 }
             }
             if standingDetectionEnabled {
-                let rawObservation = standingPoseClassifier.classify(
+                let classifierObservation = standingPoseClassifier.classify(
                     standingSample
                 )
-                let observation = standingObservationSmoother.ingest(
-                    rawObservation
-                )
-                let confirmed = standingGestureDetector.ingest(
+                let rawObservation =
+                    standingPostureLatch.effectiveObservation(
+                        rawObservation: classifierObservation,
+                        matchesSeatedReference: matchesSeatedReference
+                    )
+                let observation: StandingPoseObservation
+                if matchesSeatedReference {
+                    standingObservationSmoother.reset()
+                    standingGestureDetector.reset()
+                    observation = .notStanding
+                } else {
+                    observation = standingObservationSmoother.ingest(
+                        rawObservation
+                    )
+                }
+                let poseConfirmed = standingGestureDetector.ingest(
                     observation,
+                    at: now
+                )
+                let absenceConfirmed = standingAbsenceDetector.ingest(
+                    isPersonVisible: personVisible,
                     at: now
                 )
                 logStandingDiagnostics(
                     sample: standingSample,
                     rawObservation: rawObservation,
                     smoothedObservation: observation,
+                    standingWasLatched:
+                        standingPostureLatch.isStandingLatched,
+                    matchesSeatedReference: matchesSeatedReference,
                     at: now
                 )
                 publishStandingProgress(
@@ -318,14 +362,20 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
                         ),
                         observation: observation,
                         confirmedDuration:
-                            standingGestureDetector.confirmedDuration(
-                                at: now
+                            max(
+                                standingGestureDetector.confirmedDuration(
+                                    at: now
+                                ),
+                                standingAbsenceDetector.confirmedDuration(
+                                    at: now
+                                )
                             ),
                         requiredDuration:
                             standingGestureDetector.requiredDuration
                     )
                 )
-                if confirmed {
+                if poseConfirmed || absenceConfirmed {
+                    standingPostureLatch.markStandingConfirmed()
                     standingDetectionEnabled = false
                     stopStandingDiagnostics()
                     publishStandingConfirmed()
@@ -524,6 +574,8 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         sample: StandingFrameSample,
         rawObservation: StandingPoseObservation,
         smoothedObservation: StandingPoseObservation,
+        standingWasLatched: Bool,
+        matchesSeatedReference: Bool,
         at time: TimeInterval
     ) {
         guard let standingDiagnosticsFile else { return }
@@ -572,7 +624,9 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
         )
         let progress = standingGestureDetector.confirmedDuration(at: time)
         let line = String(
-            format: "%.3f %@ %@ %@ %@ %@ raw=%@ smooth=%@ progress=%.1f\n",
+            format:
+                "%.3f %@ %@ %@ %@ %@ raw=%@ smooth=%@ "
+                + "latched=%d seatedMatch=%d progress=%.1f\n",
             time,
             face,
             upperBody,
@@ -581,6 +635,8 @@ final class CameraMonitor: NSObject, AVCaptureVideoDataOutputSampleBufferDelegat
             baselines,
             String(describing: rawObservation),
             String(describing: smoothedObservation),
+            standingWasLatched ? 1 : 0,
+            matchesSeatedReference ? 1 : 0,
             progress
         )
         if let data = line.data(using: .utf8) {
@@ -727,9 +783,9 @@ enum DrinkingGestureGeometry {
             return false
         }
         let normalizedX =
-            (palm.x - mouth.x) / (faceSize.width * 1.05)
+            (palm.x - mouth.x) / (faceSize.width * 0.72)
         let normalizedY =
-            (palm.y - mouth.y) / (faceSize.height * 0.85)
+            (palm.y - mouth.y) / (faceSize.height * 0.48)
         return normalizedX * normalizedX + normalizedY * normalizedY <= 1
     }
 }

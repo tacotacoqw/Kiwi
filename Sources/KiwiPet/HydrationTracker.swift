@@ -100,12 +100,13 @@ enum DrinkingGestureObservation {
 }
 
 struct DrinkingGestureDetector {
-    var requiredReadyFrames = 1
+    var requiredReadyFrames = 2
     var requiredNearFrames = 3
     var minimumHoldDuration: TimeInterval = 1
     var requiredReleaseFrames = 2
-    var requiredUnavailableReleaseFrames = 3
     var toleratedMissingFramesDuringHold = 2
+    var toleratedUnavailableFramesAfterHold = 3
+    var maximumObservationGap: TimeInterval = 1.25
     var cooldown: TimeInterval = 20
 
     private var readyFrames = 0
@@ -115,7 +116,8 @@ struct DrinkingGestureDetector {
     private var holdStartedAt: TimeInterval?
     private var holdSatisfied = false
     private var releaseFrames = 0
-    private var unavailableReleaseFrames = 0
+    private var unavailableFramesAfterHold = 0
+    private var lastObservationAt: TimeInterval?
     private var nextAllowedDetectionAt: TimeInterval = 0
 
     mutating func ingest(
@@ -126,6 +128,11 @@ struct DrinkingGestureDetector {
             resetProgress()
             return false
         }
+        if let lastObservationAt,
+           time - lastObservationAt > maximumObservationGap {
+            resetProgress()
+        }
+        lastObservationAt = time
 
         switch observation {
         case .unavailable:
@@ -151,7 +158,7 @@ struct DrinkingGestureDetector {
         nearFrames += 1
         missingFramesDuringHold = 0
         releaseFrames = 0
-        unavailableReleaseFrames = 0
+        unavailableFramesAfterHold = 0
 
         if nearFrames >= requiredNearFrames,
            let holdStartedAt,
@@ -176,7 +183,7 @@ struct DrinkingGestureDetector {
         }
 
         releaseFrames += 1
-        unavailableReleaseFrames = 0
+        unavailableFramesAfterHold = 0
         guard releaseFrames >= requiredReleaseFrames else {
             return false
         }
@@ -199,7 +206,7 @@ struct DrinkingGestureDetector {
         }
 
         releaseFrames += 1
-        unavailableReleaseFrames = 0
+        unavailableFramesAfterHold = 0
         guard releaseFrames >= requiredReleaseFrames else {
             return false
         }
@@ -213,13 +220,13 @@ struct DrinkingGestureDetector {
         }
 
         if holdSatisfied {
-            unavailableReleaseFrames += 1
+            unavailableFramesAfterHold += 1
             releaseFrames = 0
-            guard unavailableReleaseFrames
-                    >= requiredUnavailableReleaseFrames else {
-                return false
+            if unavailableFramesAfterHold
+                > toleratedUnavailableFramesAfterHold {
+                resetProgress()
             }
-            return completeDetection(at: time)
+            return false
         }
 
         missingFramesDuringHold += 1
@@ -243,11 +250,12 @@ struct DrinkingGestureDetector {
         holdStartedAt = nil
         holdSatisfied = false
         releaseFrames = 0
-        unavailableReleaseFrames = 0
+        unavailableFramesAfterHold = 0
     }
 
     mutating func reset() {
         resetProgress()
+        lastObservationAt = nil
         nextAllowedDetectionAt = 0
     }
 }

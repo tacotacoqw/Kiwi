@@ -116,6 +116,136 @@ final class StandingGestureDetectorTests: XCTestCase {
         XCTAssertFalse(detector.ingest(.standing, at: 10.5))
     }
 
+    func testSecondReminderRecognizesStillStandingWithoutNewTransition() {
+        var classifier = StandingPoseClassifier()
+        var postureLatch = StandingPostureLatch()
+        var smoother = StandingObservationSmoother()
+        var detector = StandingGestureDetector()
+        classifier.observeSeatedReference(
+            frame(
+                faceY: 0.363,
+                faceHeight: 0.317,
+                upperBodyY: 0.444,
+                upperBodyHeight: 0.887,
+                shoulderY: 0.436
+            )
+        )
+        postureLatch.markStandingConfirmed()
+        let stillStandingFrame = frame(
+            faceY: 0.120,
+            faceHeight: 0.288
+        )
+
+        XCTAssertEqual(
+            classifier.classify(stillStandingFrame),
+            .notStanding
+        )
+        XCTAssertFalse(
+            classifier.matchesSeatedReference(stillStandingFrame)
+        )
+
+        var confirmed = false
+        for index in 0...20 {
+            let rawObservation = classifier.classify(
+                stillStandingFrame
+            )
+            let observation = postureLatch.effectiveObservation(
+                rawObservation: rawObservation,
+                matchesSeatedReference: false
+            )
+            confirmed = detector.ingest(
+                smoother.ingest(observation),
+                at: TimeInterval(index) * 0.5
+            ) || confirmed
+        }
+
+        XCTAssertTrue(confirmed)
+    }
+
+    func testStableReturnToSeatClearsStandingContinuation() {
+        var classifier = StandingPoseClassifier()
+        var postureLatch = StandingPostureLatch()
+        let seatedFrame = frame(
+            faceY: 0.50,
+            faceHeight: 0.20,
+            upperBodyY: 0.45,
+            upperBodyHeight: 0.60,
+            shoulderY: 0.40
+        )
+        classifier.observeSeatedReference(seatedFrame)
+        postureLatch.markStandingConfirmed()
+
+        XCTAssertTrue(classifier.matchesSeatedReference(seatedFrame))
+        for index in 0..<4 {
+            XCTAssertFalse(
+                postureLatch.updateSeatedMatch(
+                    true,
+                    at: TimeInterval(index)
+                )
+            )
+        }
+        XCTAssertTrue(postureLatch.isStandingLatched)
+        XCTAssertTrue(
+            postureLatch.updateSeatedMatch(true, at: 4)
+        )
+        XCTAssertFalse(postureLatch.isStandingLatched)
+    }
+
+    func testBriefSeatedLikeFrameDoesNotClearStandingContinuation() {
+        var postureLatch = StandingPostureLatch()
+        postureLatch.markStandingConfirmed()
+
+        XCTAssertFalse(postureLatch.updateSeatedMatch(true, at: 0))
+        XCTAssertFalse(postureLatch.updateSeatedMatch(true, at: 1))
+        XCTAssertFalse(postureLatch.updateSeatedMatch(false, at: 1.5))
+        XCTAssertTrue(postureLatch.isStandingLatched)
+        XCTAssertEqual(
+            postureLatch.effectiveObservation(
+                rawObservation: .notStanding,
+                matchesSeatedReference: false
+            ),
+            .standing
+        )
+    }
+
+    func testSeatedReferenceImmediatelyOverridesStandingContinuation() {
+        var postureLatch = StandingPostureLatch()
+        postureLatch.markStandingConfirmed()
+
+        XCTAssertEqual(
+            postureLatch.effectiveObservation(
+                rawObservation: .standing,
+                matchesSeatedReference: true
+            ),
+            .notStanding
+        )
+    }
+
+    func testTorsoAndShouldersRecognizeSeatWhenFaceHasMoved() {
+        var classifier = StandingPoseClassifier()
+        classifier.observeSeatedReference(
+            frame(
+                faceY: 0.158,
+                faceHeight: 0.252,
+                upperBodyY: 0.258,
+                upperBodyHeight: 0.497,
+                shoulderY: 0.361
+            )
+        )
+
+        XCTAssertTrue(
+            classifier.matchesSeatedReference(
+                frame(
+                    faceY: 0.280,
+                    faceHeight: 0.213,
+                    upperBodyY: 0.238,
+                    upperBodyHeight: 0.476,
+                    shoulderY: 0.403
+                )
+            )
+        )
+    }
+
     func testThreeSecondsOfConfirmedSittingRestartConfirmation() {
         var detector = StandingGestureDetector()
 
@@ -211,6 +341,75 @@ final class StandingGestureDetectorTests: XCTestCase {
         XCTAssertFalse(detector.ingest(.standing, at: 12.4))
     }
 
+    func testTenSecondsAwayFromTheDeskConfirmsStandingBreak() {
+        var detector = StandingAbsenceDetector()
+
+        for index in 0..<20 {
+            XCTAssertFalse(
+                detector.ingest(
+                    isPersonVisible: false,
+                    at: TimeInterval(index) * 0.5
+                )
+            )
+        }
+        XCTAssertTrue(
+            detector.ingest(isPersonVisible: false, at: 10)
+        )
+        XCTAssertEqual(detector.confirmedDuration(at: 10), 10)
+    }
+
+    func testBriefVisionRecoveryDoesNotLoseRealAbsenceProgress() {
+        var detector = StandingAbsenceDetector()
+
+        for index in 0...8 {
+            XCTAssertFalse(
+                detector.ingest(
+                    isPersonVisible: false,
+                    at: TimeInterval(index) * 0.5
+                )
+            )
+        }
+        XCTAssertFalse(
+            detector.ingest(isPersonVisible: true, at: 4.5)
+        )
+        XCTAssertFalse(
+            detector.ingest(isPersonVisible: true, at: 5)
+        )
+        for index in 11..<20 {
+            XCTAssertFalse(
+                detector.ingest(
+                    isPersonVisible: false,
+                    at: TimeInterval(index) * 0.5
+                )
+            )
+        }
+        XCTAssertTrue(
+            detector.ingest(isPersonVisible: false, at: 10)
+        )
+    }
+
+    func testReturningToDeskResetsAbsenceConfirmation() {
+        var detector = StandingAbsenceDetector()
+
+        for index in 0...8 {
+            XCTAssertFalse(
+                detector.ingest(
+                    isPersonVisible: false,
+                    at: TimeInterval(index) * 0.5
+                )
+            )
+        }
+        for index in 9...13 {
+            XCTAssertFalse(
+                detector.ingest(
+                    isPersonVisible: true,
+                    at: TimeInterval(index) * 0.5
+                )
+            )
+        }
+        XCTAssertEqual(detector.confirmedDuration(at: 6.5), 0)
+    }
+
     func testShoulderRiseWithoutLowerBodyIsNotEnough() {
         var classifier = StandingPoseClassifier()
         classifier.observeSeatedReference(
@@ -223,6 +422,37 @@ final class StandingGestureDetectorTests: XCTestCase {
             ),
             .unavailable
         )
+    }
+
+    func testSingleBaselineOutlierDoesNotMoveSeatedReference() {
+        var classifier = StandingPoseClassifier()
+
+        for _ in 0..<7 {
+            classifier.observeSeatedReference(
+                frame(
+                    faceY: 0.50,
+                    faceHeight: 0.20,
+                    upperBodyY: 0.45,
+                    upperBodyHeight: 0.60,
+                    shoulderY: 0.40
+                )
+            )
+        }
+        classifier.observeSeatedReference(
+            frame(
+                faceY: 0.85,
+                faceHeight: 0.40,
+                upperBodyY: 0.70,
+                upperBodyHeight: 0.95,
+                shoulderY: 0.75
+            )
+        )
+
+        XCTAssertEqual(classifier.baselineFaceY, 0.50)
+        XCTAssertEqual(classifier.baselineFaceHeight, 0.20)
+        XCTAssertEqual(classifier.baselineUpperBodyY, 0.45)
+        XCTAssertEqual(classifier.baselineUpperBodyHeight, 0.60)
+        XCTAssertEqual(classifier.baselineShoulderY, 0.40)
     }
 
     func testStraightVisibleLegCountsAsStanding() {
